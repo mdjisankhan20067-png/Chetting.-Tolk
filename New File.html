@@ -83,10 +83,24 @@
 
         .call-modal { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); display: none; flex-direction: column; justify-content: center; align-items: center; color: white; z-index: 100; animation: fadeIn 0.5s; }
         .call-modal.active { display: flex; }
+        
+        /* নাম উপরে রাখার জন্য নতুন CSS */
+        .call-info-top {
+            position: absolute;
+            top: 40px;
+            left: 50%;
+            transform: translateX(-50%);
+            text-align: center;
+            z-index: 30;
+            color: white;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.6);
+        }
+        .call-info-top h2 { margin-bottom: 5px; font-size: 24px; }
+        .call-info-top p { font-size: 14px; color: #ddd; }
+        
         .call-modal .avatar { width: 100px; height: 100px; font-size: 40px; margin-bottom: 20px; z-index: 10; }
-        .call-modal h2 { margin-bottom: 10px; z-index: 10; }
-        .call-modal p { color: #aaa; margin-bottom: 40px; z-index: 10; }
-        .call-icons-set i { font-size: 30px; margin: 0 20px; background: #333; padding: 15px; border-radius: 50%; cursor: pointer; transition: 0.3s; z-index: 10; }
+        .call-icons-set { position: absolute; bottom: 40px; z-index: 30; }
+        .call-icons-set i { font-size: 30px; margin: 0 20px; background: #333; padding: 15px; border-radius: 50%; cursor: pointer; transition: 0.3s; }
         .call-icons-set i:hover { background: #555; transform: scale(1.1); }
         .call-icons-set i.end-call { background: #dc3545; }
         .call-icons-set i.call-accept { background: var(--accent); }
@@ -95,6 +109,7 @@
         .toast.show { display: block; }
         .hidden { display: none; }
         
+        /* Video Elements */
         #localVideo { position: absolute; top: 20px; right: 20px; width: 120px; height: 160px; background: #000; border-radius: 10px; object-fit: cover; z-index: 20; display: none; border: 2px solid white; }
         #remoteVideo { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; z-index: 1; display: none; background: #000; }
     </style>
@@ -156,9 +171,13 @@
         <div id="callModal" class="call-modal">
             <video id="remoteVideo" autoplay playsinline></video>
             <video id="localVideo" autoplay playsinline muted></video>
+            
+            <div class="call-info-top">
+                <h2 id="callName">User Name</h2>
+                <p id="callStatus">কল হচ্ছে... <i class="fas fa-circle-notch fa-spin"></i></p>
+            </div>
+            
             <div class="avatar" id="callAvatar">U</div>
-            <h2 id="callName">User Name</h2>
-            <p id="callStatus">কল হচ্ছে... <i class="fas fa-circle-notch fa-spin"></i></p>
             <div class="call-icons-set" id="callActions">
                 <i class="fas fa-phone-slash end-call" id="endCallBtn" title="কল কেটে দিন"></i>
             </div>
@@ -411,8 +430,6 @@
         // ================= WEBRTC CALL LOGIC =================
         document.getElementById('audioCallBtn').addEventListener('click', () => startCall(false));
         document.getElementById('videoCallBtn').addEventListener('click', () => startCall(true));
-        
-        // Initial End Call Button
         document.getElementById('endCallBtn').addEventListener('click', () => endCall(true));
 
         async function getMediaStream(isVideo) {
@@ -443,7 +460,6 @@
                 document.getElementById('callAvatar').style.display = 'none';
             }
             
-            // কল দাতার জন্য লাল কল কাটার বাটন
             document.getElementById('callActions').innerHTML = '<i class="fas fa-phone-slash end-call" id="endCallBtn" title="কল কেটে দিন"></i>';
             document.getElementById('endCallBtn').addEventListener('click', () => endCall(true));
 
@@ -452,12 +468,17 @@
                 peerConnection = new RTCPeerConnection(servers);
                 stream.getTracks().forEach(track => peerConnection.addTrack(track, stream));
 
-                peerConnection.ontrack = (event) => {
+                peerConnection.ontrack = async (event) => {
                     const remoteAudio = document.getElementById('remoteAudio');
                     const remoteVideo = document.getElementById('remoteVideo');
                     if (event.streams && event.streams[0]) {
                         remoteAudio.srcObject = event.streams[0];
                         remoteVideo.srcObject = event.streams[0];
+                        // ব্রাউজারের Autoplay পলিসি ফাঁকি দেওয়ার জন্য নিচের লাইনগুলো
+                        remoteVideo.muted = true; // মিউট করে প্লে করানো হলো
+                        try { await remoteVideo.play(); } catch(e) {}
+                        remoteVideo.muted = false; // আবার আনমিউট করা হলো যাতে কথা শোনা যায়
+                        
                         if(event.streams[0].getVideoTracks().length > 0) {
                             remoteVideo.style.display = 'block';
                             document.getElementById('callAvatar').style.display = 'none';
@@ -494,11 +515,8 @@
                     }
                 });
 
-                // যদি অপর পক্ষ কল কেটে দেয় বা রিজেক্ট করে
                 onValue(ref(db, `calls/${callId}/status`), (snapshot) => {
-                    if(snapshot.val() === 'rejected' || snapshot.val() === 'ended') {
-                        endCall(false); // notify false কারণ অপর পক্ষ ইতিমধ্যে জানিয়ে দিয়েছে
-                    }
+                    if(snapshot.val() === 'rejected' || snapshot.val() === 'ended') endCall(false);
                 });
 
                 onChildAdded(ref(db, `calls/${callId}/calleeCandidates`), async (snapshot) => {
@@ -522,8 +540,6 @@
                     document.getElementById('callAvatar').innerText = call.callerName ? call.callerName.charAt(0).toUpperCase() : 'U';
                     document.getElementById('callStatus').innerText = 'ইনকামিং কল...';
                     document.getElementById('callModal').classList.add('active');
-                    
-                    // কল রিসিভারের জন্য সবুজ রিসিভ এবং লাল রিজেক্ট বাটন
                     document.getElementById('callActions').innerHTML = `
                         <i class="fas fa-phone call-accept" id="acceptCallBtn" title="রিসিভ করুন"></i>
                         <i class="fas fa-phone-slash end-call" id="rejectCallBtn" title="রিজেক্ট করুন"></i>`;
@@ -539,12 +555,17 @@
                 peerConnection = new RTCPeerConnection(servers);
                 stream.getTracks().forEach(track => peerConnection.addTrack(track, stream));
 
-                peerConnection.ontrack = (event) => {
+                peerConnection.ontrack = async (event) => {
                     const remoteAudio = document.getElementById('remoteAudio');
                     const remoteVideo = document.getElementById('remoteVideo');
                     if (event.streams && event.streams[0]) {
                         remoteAudio.srcObject = event.streams[0];
                         remoteVideo.srcObject = event.streams[0];
+                        // ব্রাউজারের Autoplay পলিসি ফাঁকি দেওয়ার জন্য নিচের লাইনগুলো
+                        remoteVideo.muted = true;
+                        try { await remoteVideo.play(); } catch(e) {}
+                        remoteVideo.muted = false;
+                        
                         if(event.streams[0].getVideoTracks().length > 0) {
                             remoteVideo.style.display = 'block';
                             document.getElementById('callAvatar').style.display = 'none';
@@ -563,8 +584,6 @@
                 await set(ref(db, `calls/${callId}/answer`), { type: answer.type, sdp: answer.sdp });
 
                 document.getElementById('callStatus').innerText = 'কল চলছে...';
-                
-                // কল রিসিভ করার পর লাল কল কাটার বাটন দেখানো হলো
                 document.getElementById('callActions').innerHTML = '<i class="fas fa-phone-slash end-call" id="endCallBtn" title="কল কেটে দিন"></i>';
                 document.getElementById('endCallBtn').addEventListener('click', () => endCall(true));
 
@@ -587,15 +606,12 @@
             resetCallUI();
         }
 
-        // notifyOtherParty = true হলে ডাটাবেসে 'ended' পাঠানো হবে, যাতে অপর পক্ষের কলও কেটে যায়
         async function endCall(notifyOtherParty) {
             if(peerConnection) peerConnection.close();
             peerConnection = null;
             resetCallUI();
             
-            if(callId && notifyOtherParty) {
-                await set(ref(db, `calls/${callId}/status`), 'ended');
-            }
+            if(callId && notifyOtherParty) await set(ref(db, `calls/${callId}/status`), 'ended');
             if(callId) {
                 await remove(ref(db, `calls/${callId}`));
                 callId = null;
@@ -607,12 +623,9 @@
             document.getElementById('remoteVideo').style.display = 'none';
             document.getElementById('localVideo').style.display = 'none';
             document.getElementById('callAvatar').style.display = 'flex';
-            const remoteVideo = document.getElementById('remoteVideo');
-            const localVideo = document.getElementById('localVideo');
-            const remoteAudio = document.getElementById('remoteAudio');
-            remoteVideo.srcObject = null;
-            localVideo.srcObject = null;
-            remoteAudio.srcObject = null;
+            document.getElementById('remoteVideo').srcObject = null;
+            document.getElementById('localVideo').srcObject = null;
+            document.getElementById('remoteAudio').srcObject = null;
         }
 
         function showScreen(screenId) {

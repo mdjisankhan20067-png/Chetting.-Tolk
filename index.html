@@ -81,12 +81,13 @@
         .action-item i { font-size: 24px; color: var(--secondary); margin-bottom: 5px; display: block; transition: 0.3s; }
         .action-item:hover i { transform: scale(1.2); color: var(--accent); }
 
+        /* Call Modal with Video Support */
         .call-modal { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); display: none; flex-direction: column; justify-content: center; align-items: center; color: white; z-index: 100; animation: fadeIn 0.5s; }
         .call-modal.active { display: flex; }
         .call-modal .avatar { width: 100px; height: 100px; font-size: 40px; margin-bottom: 20px; }
-        .call-modal h2 { margin-bottom: 10px; }
-        .call-modal p { color: #aaa; margin-bottom: 40px; }
-        .call-icons-set i { font-size: 30px; margin: 0 20px; background: #333; padding: 15px; border-radius: 50%; cursor: pointer; transition: 0.3s; }
+        .call-modal h2 { margin-bottom: 10px; z-index: 10; }
+        .call-modal p { color: #aaa; margin-bottom: 40px; z-index: 10; }
+        .call-icons-set i { font-size: 30px; margin: 0 20px; background: #333; padding: 15px; border-radius: 50%; cursor: pointer; transition: 0.3s; z-index: 10; }
         .call-icons-set i:hover { background: #555; transform: scale(1.1); }
         .call-icons-set i.end-call { background: #dc3545; }
         .call-icons-set i.call-accept { background: var(--accent); }
@@ -94,6 +95,9 @@
         .toast { position: absolute; bottom: 70px; left: 50%; transform: translateX(-50%); background: #333; color: white; padding: 10px 20px; border-radius: 20px; font-size: 14px; display: none; z-index: 200; animation: fadeIn 0.3s; }
         .toast.show { display: block; }
         .hidden { display: none; }
+        
+        #localVideo { position: absolute; top: 20px; right: 20px; width: 100px; height: 150px; background: #000; border-radius: 10px; object-fit: cover; z-index: 5; display: none; }
+        #remoteVideo { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; z-index: 1; display: none; background: #000; }
     </style>
 </head>
 <body>
@@ -151,6 +155,8 @@
         </div>
 
         <div id="callModal" class="call-modal">
+            <video id="remoteVideo" autoplay playsinline></video>
+            <video id="localVideo" autoplay playsinline muted></video>
             <div class="avatar" id="callAvatar">U</div>
             <h2 id="callName">User Name</h2>
             <p id="callStatus">কল হচ্ছে... <i class="fas fa-circle-notch fa-spin"></i></p>
@@ -160,7 +166,6 @@
         </div>
 
         <audio id="remoteAudio" autoplay class="hidden"></audio>
-        <video id="remoteVideo" autoplay class="hidden"></video>
     </div>
 
     <script type="module">
@@ -413,6 +418,10 @@
             if (localStream) return localStream;
             try {
                 localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: isVideo });
+                if(isVideo) {
+                    document.getElementById('localVideo').srcObject = localStream;
+                    document.getElementById('localVideo').style.display = 'block';
+                }
                 return localStream;
             } catch (err) {
                 showToast("মাইক্রোফোন/ক্যামেরা অনুমতি প্রয়োজন!");
@@ -428,6 +437,11 @@
             document.getElementById('callAvatar').innerText = currentChatUser.name.charAt(0).toUpperCase();
             document.getElementById('callStatus').innerHTML = 'রিং হচ্ছে... <i class="fas fa-circle-notch fa-spin"></i>';
             document.getElementById('callModal').classList.add('active');
+            
+            if(isVideo) {
+                document.getElementById('callAvatar').style.display = 'none';
+            }
+            
             document.getElementById('callActions').innerHTML = '<i class="fas fa-phone-slash end-call" id="endCallBtn" title="কল কেটে দিন"></i>';
             document.getElementById('endCallBtn').addEventListener('click', () => endCall(true));
 
@@ -442,6 +456,10 @@
                     if (event.streams && event.streams[0]) {
                         remoteAudio.srcObject = event.streams[0];
                         remoteVideo.srcObject = event.streams[0];
+                        if(event.streams[0].getVideoTracks().length > 0) {
+                            remoteVideo.style.display = 'block';
+                            document.getElementById('callAvatar').style.display = 'none';
+                        }
                     }
                 };
 
@@ -520,6 +538,10 @@
                     if (event.streams && event.streams[0]) {
                         remoteAudio.srcObject = event.streams[0];
                         remoteVideo.srcObject = event.streams[0];
+                        if(event.streams[0].getVideoTracks().length > 0) {
+                            remoteVideo.style.display = 'block';
+                            document.getElementById('callAvatar').style.display = 'none';
+                        }
                     }
                 };
 
@@ -553,19 +575,30 @@
                 await remove(ref(db, `calls/${callId}`));
                 callId = null;
             }
-            document.getElementById('callModal').classList.remove('active');
+            resetCallUI();
         }
 
         async function endCall(notifyOtherParty) {
             if(peerConnection) peerConnection.close();
             peerConnection = null;
-            document.getElementById('callModal').classList.remove('active');
+            resetCallUI();
             
             if(callId && notifyOtherParty) await set(ref(db, `calls/${callId}/status`), 'ended');
             if(callId) {
                 await remove(ref(db, `calls/${callId}`));
                 callId = null;
             }
+        }
+
+        function resetCallUI() {
+            document.getElementById('callModal').classList.remove('active');
+            document.getElementById('remoteVideo').style.display = 'none';
+            document.getElementById('localVideo').style.display = 'none';
+            document.getElementById('callAvatar').style.display = 'flex';
+            const remoteVideo = document.getElementById('remoteVideo');
+            const localVideo = document.getElementById('localVideo');
+            remoteVideo.srcObject = null;
+            localVideo.srcObject = null;
         }
 
         function showScreen(screenId) {

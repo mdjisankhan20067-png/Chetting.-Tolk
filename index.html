@@ -81,22 +81,51 @@
         .action-item i { font-size: 24px; color: var(--secondary); margin-bottom: 5px; display: block; transition: 0.3s; }
         .action-item:hover i { transform: scale(1.2); color: var(--accent); }
 
-        /* Call Modal with Video Support */
-        .call-modal { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); display: none; flex-direction: column; justify-content: center; align-items: center; color: white; z-index: 100; animation: fadeIn 0.5s; }
+        /* ===== WhatsApp Style Call Modal ===== */
+        .call-modal { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: #121212; display: none; flex-direction: column; color: white; z-index: 100; animation: fadeIn 0.5s; }
         .call-modal.active { display: flex; }
-        .call-modal .avatar { width: 100px; height: 100px; font-size: 40px; margin-bottom: 20px; }
-        .call-modal h2 { margin-bottom: 10px; z-index: 10; }
-        .call-modal p { color: #aaa; margin-bottom: 40px; z-index: 10; }
-        .call-icons-set i { font-size: 30px; margin: 0 20px; background: #333; padding: 15px; border-radius: 50%; cursor: pointer; transition: 0.3s; z-index: 10; }
-        .call-icons-set i:hover { background: #555; transform: scale(1.1); }
-        .call-icons-set i.end-call { background: #dc3545; }
-        .call-icons-set i.call-accept { background: var(--accent); }
         
-        .toast { position: absolute; bottom: 70px; left: 50%; transform: translateX(-50%); background: #333; color: white; padding: 10px 20px; border-radius: 20px; font-size: 14px; display: none; z-index: 200; animation: fadeIn 0.3s; }
+        .call-header-info { position: absolute; top: 50px; left: 50%; transform: translateX(-50%); text-align: center; z-index: 30; }
+        .call-header-info h2 { font-size: 24px; margin-bottom: 5px; text-shadow: 0 2px 4px rgba(0,0,0,0.6); }
+        .call-header-info p { font-size: 14px; color: #ddd; text-shadow: 0 2px 4px rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; gap: 5px; }
+        
+        .call-avatar { width: 100px; height: 100px; font-size: 40px; position: absolute; top: 40%; left: 50%; transform: translate(-50%, -50%); z-index: 10; background: var(--secondary); }
+        .call-avatar.hidden { display: none; }
+        
+        /* Bottom Control Bar (WhatsApp Style) */
+        .call-controls-bar {
+            position: absolute;
+            bottom: 40px;
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 20px;
+            z-index: 50;
+        }
+        .control-btn {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.2);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            transition: 0.3s;
+            font-size: 22px;
+            color: white;
+            border: none;
+        }
+        .control-btn:hover { background: rgba(255,255,255,0.4); }
+        .control-btn.active-off { background: #fff; color: #dc3545; }
+        .end-call-btn { background: #dc3545; width: 70px; height: 70px; font-size: 26px; }
+        
+        .toast { position: absolute; bottom: 120px; left: 50%; transform: translateX(-50%); background: #333; color: white; padding: 10px 20px; border-radius: 20px; font-size: 14px; display: none; z-index: 200; animation: fadeIn 0.3s; }
         .toast.show { display: block; }
         .hidden { display: none; }
         
-        #localVideo { position: absolute; top: 20px; right: 20px; width: 100px; height: 150px; background: #000; border-radius: 10px; object-fit: cover; z-index: 5; display: none; }
+        #localVideo { position: absolute; top: 80px; right: 20px; width: 120px; height: 160px; background: #000; border-radius: 10px; object-fit: cover; z-index: 20; display: none; border: 2px solid rgba(255,255,255,0.3); }
         #remoteVideo { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; z-index: 1; display: none; background: #000; }
     </style>
 </head>
@@ -157,14 +186,22 @@
         <div id="callModal" class="call-modal">
             <video id="remoteVideo" autoplay playsinline></video>
             <video id="localVideo" autoplay playsinline muted></video>
-            <div class="avatar" id="callAvatar">U</div>
-            <h2 id="callName">User Name</h2>
-            <p id="callStatus">কল হচ্ছে... <i class="fas fa-circle-notch fa-spin"></i></p>
-            <div class="call-icons-set" id="callActions">
-                <i class="fas fa-phone-slash end-call" id="endCallBtn" title="কল কেটে দিন"></i>
+            
+            <div class="call-header-info">
+                <h2 id="callName">User Name</h2>
+                <p id="callStatus"><i class="fas fa-lock"></i> End-to-end encrypted</p>
+            </div>
+            
+            <div class="avatar call-avatar" id="callAvatar">U</div>
+            
+            <div class="call-controls-bar" id="callControlsBar">
+                <!-- কল রিং হওয়ার সময় শুধু লাল বাটন থাকবে -->
+                <button class="control-btn end-call-btn" id="endCallBtn" title="কল কেটে দিন">
+                    <i class="fas fa-phone-slash"></i>
+                </button>
             </div>
         </div>
-
+        
         <audio id="remoteAudio" autoplay class="hidden"></audio>
     </div>
 
@@ -195,7 +232,13 @@
         let localStream = null; 
         let peerConnection = null;
         let callId = null;
-        const servers = { 'iceServers': [{ 'urls': 'stun:stun.l.google.com:19302' }] };
+        let callTimer = null;
+        const servers = { 
+            'iceServers': [
+                { 'urls': 'stun:stun.l.google.com:19302' },
+                { 'urls': 'stun:stun1.l.google.com:19302' }
+            ] 
+        };
 
         function showToast(message) {
             const toast = document.getElementById('toast');
@@ -412,12 +455,77 @@
         // ================= WEBRTC CALL LOGIC =================
         document.getElementById('audioCallBtn').addEventListener('click', () => startCall(false));
         document.getElementById('videoCallBtn').addEventListener('click', () => startCall(true));
-        document.getElementById('endCallBtn').addEventListener('click', () => endCall(false));
+        
+        // কল রিং করার সময় শুধু লাল বাটন থাকবে
+        function setupRingingControls() {
+            document.getElementById('callControlsBar').innerHTML = `
+                <button class="control-btn end-call-btn" id="endCallBtn" title="কল কেটে দিন">
+                    <i class="fas fa-phone-slash"></i>
+                </button>`;
+            document.getElementById('endCallBtn').addEventListener('click', () => endCall(true));
+        }
+
+        // কল কানেক্ট হওয়ার পর মাইক, ক্যামেরা এবং কল কাটার বাটন থাকবে
+        function setupActiveControls(isVideo) {
+            let videoBtn = '';
+            if(isVideo) {
+                videoBtn = `<button class="control-btn" id="toggleVideoBtn" title="ক্যামেরা"><i class="fas fa-video"></i></button>`;
+            }
+            
+            document.getElementById('callControlsBar').innerHTML = `
+                <button class="control-btn" id="toggleMicBtn" title="মাইক্রোফোন"><i class="fas fa-microphone"></i></button>
+                ${videoBtn}
+                <button class="control-btn end-call-btn" id="endCallBtn" title="কল কেটে দিন"><i class="fas fa-phone-slash"></i></button>
+            `;
+            
+            document.getElementById('endCallBtn').addEventListener('click', () => endCall(true));
+            
+            // মাইক চালু/বন্ধ করার লজিক
+            document.getElementById('toggleMicBtn').addEventListener('click', () => {
+                const micBtn = document.getElementById('toggleMicBtn');
+                localStream.getAudioTracks().forEach(track => {
+                    track.enabled = !track.enabled;
+                    micBtn.innerHTML = track.enabled ? '<i class="fas fa-microphone"></i>' : '<i class="fas fa-microphone-slash"></i>';
+                    micBtn.classList.toggle('active-off', !track.enabled);
+                });
+            });
+            
+            // ক্যামেরা চালু/বন্ধ করার লজিক
+            if(isVideo) {
+                document.getElementById('toggleVideoBtn').addEventListener('click', () => {
+                    const vidBtn = document.getElementById('toggleVideoBtn');
+                    localStream.getVideoTracks().forEach(track => {
+                        track.enabled = !track.enabled;
+                        vidBtn.innerHTML = track.enabled ? '<i class="fas fa-video"></i>' : '<i class="fas fa-video-slash"></i>';
+                        vidBtn.classList.toggle('active-off', !track.enabled);
+                    });
+                });
+            }
+        }
+
+        function startCallTimer() {
+            let seconds = 0;
+            const statusEl = document.getElementById('callStatus');
+            callTimer = setInterval(() => {
+                seconds++;
+                const m = String(Math.floor(seconds / 60)).padStart(2, '0');
+                const s = String(seconds % 60).padStart(2, '0');
+                statusEl.innerHTML = `<i class="fas fa-lock"></i> ${m}:${s}`;
+            }, 1000);
+        }
+
+        function stopCallTimer() {
+            if(callTimer) clearInterval(callTimer);
+            callTimer = null;
+        }
 
         async function getMediaStream(isVideo) {
             if (localStream) return localStream;
             try {
-                localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: isVideo });
+                localStream = await navigator.mediaDevices.getUserMedia({ 
+                    audio: true, 
+                    video: isVideo ? { width: 640, height: 480 } : false 
+                });
                 if(isVideo) {
                     document.getElementById('localVideo').srcObject = localStream;
                     document.getElementById('localVideo').style.display = 'block';
@@ -426,6 +534,24 @@
             } catch (err) {
                 showToast("মাইক্রোফোন/ক্যামেরা অনুমতি প্রয়োজন!");
                 throw err;
+            }
+        }
+
+        function setupRemoteStream(event) {
+            const remoteAudio = document.getElementById('remoteAudio');
+            const remoteVideo = document.getElementById('remoteVideo');
+            if (event.streams && event.streams[0]) {
+                remoteAudio.srcObject = event.streams[0];
+                remoteVideo.srcObject = event.streams[0];
+                remoteVideo.setAttribute('muted', 'true');
+                remoteVideo.play().then(() => {
+                    remoteVideo.removeAttribute('muted');
+                }).catch(e => console.error("Video play error:", e));
+                
+                if(event.streams[0].getVideoTracks().length > 0) {
+                    remoteVideo.style.display = 'block';
+                    document.getElementById('callAvatar').classList.add('hidden');
+                }
             }
         }
 
@@ -438,30 +564,18 @@
             document.getElementById('callStatus').innerHTML = 'রিং হচ্ছে... <i class="fas fa-circle-notch fa-spin"></i>';
             document.getElementById('callModal').classList.add('active');
             
+            setupRingingControls(); // রিং হওয়ার সময় শুধু লাল বাটন
+
             if(isVideo) {
-                document.getElementById('callAvatar').style.display = 'none';
+                document.getElementById('callAvatar').classList.add('hidden');
             }
-            
-            document.getElementById('callActions').innerHTML = '<i class="fas fa-phone-slash end-call" id="endCallBtn" title="কল কেটে দিন"></i>';
-            document.getElementById('endCallBtn').addEventListener('click', () => endCall(true));
 
             try {
                 const stream = await getMediaStream(isVideo);
                 peerConnection = new RTCPeerConnection(servers);
                 stream.getTracks().forEach(track => peerConnection.addTrack(track, stream));
 
-                peerConnection.ontrack = (event) => {
-                    const remoteAudio = document.getElementById('remoteAudio');
-                    const remoteVideo = document.getElementById('remoteVideo');
-                    if (event.streams && event.streams[0]) {
-                        remoteAudio.srcObject = event.streams[0];
-                        remoteVideo.srcObject = event.streams[0];
-                        if(event.streams[0].getVideoTracks().length > 0) {
-                            remoteVideo.style.display = 'block';
-                            document.getElementById('callAvatar').style.display = 'none';
-                        }
-                    }
-                };
+                peerConnection.ontrack = setupRemoteStream;
 
                 peerConnection.onicecandidate = (event) => {
                     if(event.candidate) push(ref(db, `calls/${callId}/callerCandidates`), event.candidate.toJSON());
@@ -487,7 +601,8 @@
                         const answer = snapshot.val();
                         if(!peerConnection.currentRemoteDescription) {
                             await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
-                            document.getElementById('callStatus').innerText = 'কল চলছে...';
+                            startCallTimer(); 
+                            setupActiveControls(isVideo); // কল কানেক্ট হলে মাইক, ক্যামেরা ও লাল বাটন
                         }
                     }
                 });
@@ -517,9 +632,15 @@
                     document.getElementById('callAvatar').innerText = call.callerName ? call.callerName.charAt(0).toUpperCase() : 'U';
                     document.getElementById('callStatus').innerText = 'ইনকামিং কল...';
                     document.getElementById('callModal').classList.add('active');
-                    document.getElementById('callActions').innerHTML = `
-                        <i class="fas fa-phone call-accept" id="acceptCallBtn" title="রিসিভ করুন"></i>
-                        <i class="fas fa-phone-slash end-call" id="rejectCallBtn" title="রিজেক্ট করুন"></i>`;
+                    
+                    // রিসিভারের জন্য সবুজ রিসিভ এবং লাল রিজেক্ট বাটন
+                    document.getElementById('callControlsBar').innerHTML = `
+                        <button class="control-btn" style="background: var(--accent);" id="acceptCallBtn" title="রিসিভ করুন">
+                            <i class="fas fa-phone"></i>
+                        </button>
+                        <button class="control-btn end-call-btn" id="rejectCallBtn" title="রিজেক্ট করুন">
+                            <i class="fas fa-phone-slash"></i>
+                        </button>`;
                     document.getElementById('acceptCallBtn').addEventListener('click', () => acceptCall(call));
                     document.getElementById('rejectCallBtn').addEventListener('click', () => rejectCall());
                 }
@@ -532,18 +653,7 @@
                 peerConnection = new RTCPeerConnection(servers);
                 stream.getTracks().forEach(track => peerConnection.addTrack(track, stream));
 
-                peerConnection.ontrack = (event) => {
-                    const remoteAudio = document.getElementById('remoteAudio');
-                    const remoteVideo = document.getElementById('remoteVideo');
-                    if (event.streams && event.streams[0]) {
-                        remoteAudio.srcObject = event.streams[0];
-                        remoteVideo.srcObject = event.streams[0];
-                        if(event.streams[0].getVideoTracks().length > 0) {
-                            remoteVideo.style.display = 'block';
-                            document.getElementById('callAvatar').style.display = 'none';
-                        }
-                    }
-                };
+                peerConnection.ontrack = setupRemoteStream;
 
                 peerConnection.onicecandidate = (event) => {
                     if(event.candidate) push(ref(db, `calls/${callId}/calleeCandidates`), event.candidate.toJSON());
@@ -555,9 +665,8 @@
                 
                 await set(ref(db, `calls/${callId}/answer`), { type: answer.type, sdp: answer.sdp });
 
-                document.getElementById('callStatus').innerText = 'কল চলছে...';
-                document.getElementById('callActions').innerHTML = '<i class="fas fa-phone-slash end-call" id="endCallBtn"></i>';
-                document.getElementById('endCallBtn').addEventListener('click', () => endCall(true));
+                startCallTimer(); 
+                setupActiveControls(call.type === 'video'); // কল কানেক্ট হলে মাইক, ক্যামেরা ও লাল বাটন
 
                 onChildAdded(ref(db, `calls/${callId}/callerCandidates`), async (snapshot) => {
                     const candidate = snapshot.val();
@@ -579,6 +688,7 @@
         }
 
         async function endCall(notifyOtherParty) {
+            stopCallTimer(); 
             if(peerConnection) peerConnection.close();
             peerConnection = null;
             resetCallUI();
@@ -591,14 +701,14 @@
         }
 
         function resetCallUI() {
+            stopCallTimer();
             document.getElementById('callModal').classList.remove('active');
             document.getElementById('remoteVideo').style.display = 'none';
             document.getElementById('localVideo').style.display = 'none';
-            document.getElementById('callAvatar').style.display = 'flex';
-            const remoteVideo = document.getElementById('remoteVideo');
-            const localVideo = document.getElementById('localVideo');
-            remoteVideo.srcObject = null;
-            localVideo.srcObject = null;
+            document.getElementById('callAvatar').classList.remove('hidden');
+            document.getElementById('remoteVideo').srcObject = null;
+            document.getElementById('localVideo').srcObject = null;
+            document.getElementById('remoteAudio').srcObject = null;
         }
 
         function showScreen(screenId) {

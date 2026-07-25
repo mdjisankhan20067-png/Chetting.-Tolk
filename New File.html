@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chetting Tolk</title>
+    <link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary: #075E54;
+            --secondary: #128C7E;
+            --accent: #25D366;
+            --light-green: #DCF8C6;
+            --chat-bg: #efeae2;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Hind Siliguri', sans-serif; }
+        body { background-color: #f0f2f5; display: flex; justify-content: center; align-items: center; height: 100vh; overflow: hidden; }
+        .app-container { width: 100%; max-width: 450px; height: 100vh; background: white; position: relative; box-shadow: 0 0 20px rgba(0,0,0,0.1); overflow: hidden; }
+        .screen { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: none; flex-direction: column; animation: fadeIn 0.5s ease; }
+        .screen.active { display: flex; }
+        @keyframes fadeIn { from { opacity: 0; transform: scale(0.98); } to { opacity: 1; transform: scale(1); } }
+
+        .auth-screen { background: linear-gradient(135deg, var(--primary), var(--secondary)); justify-content: center; align-items: center; color: white; padding: 20px; text-align: center; }
+        .auth-box { background: white; color: #333; padding: 30px; border-radius: 15px; width: 100%; box-shadow: 0 10px 30px rgba(0,0,0,0.2); animation: slideUp 0.6s ease; }
+        @keyframes slideUp { from { transform: translateY(50px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        .auth-box h2 { margin-bottom: 20px; color: var(--primary); }
+        .auth-box input { width: 100%; padding: 12px; margin-bottom: 15px; border: 1px solid #ccc; border-radius: 8px; outline: none; transition: 0.3s; }
+        .auth-box input:focus { border-color: var(--accent); box-shadow: 0 0 5px rgba(37,211,102,0.3); }
+        .auth-box button { width: 100%; padding: 12px; background: var(--accent); color: white; border: none; border-radius: 8px; font-size: 16px; cursor: pointer; transition: 0.3s; }
+        .auth-box button:hover { background: #1ebd5a; transform: translateY(-2px); }
+        .switch-text { margin-top: 15px; font-size: 14px; color: #666; }
+        .switch-text span { color: var(--primary); font-weight: bold; cursor: pointer; }
+        #errorMsg { color: red; font-size: 13px; margin-bottom: 10px; display: none; background: #ffebee; padding: 8px; border-radius: 5px; text-align: center;}
+
+        .header { background: var(--primary); color: white; padding: 15px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        .header h3 { font-size: 20px; }
+        .header-icons i { margin-left: 20px; font-size: 18px; cursor: pointer; transition: 0.3s; }
+        .header-icons i:hover { transform: scale(1.2); color: var(--light-green); }
+        .chat-list { flex: 1; overflow-y: auto; background: white; }
+        .chat-item { display: flex; padding: 15px; border-bottom: 1px solid #f0f0f0; cursor: pointer; transition: 0.2s; }
+        .chat-item:hover { background: #f5f5f5; }
+        .avatar { width: 50px; height: 50px; border-radius: 50%; background: var(--secondary); color: white; display: flex; justify-content: center; align-items: center; font-size: 20px; font-weight: bold; margin-right: 15px; position: relative; }
+        .online-dot { position: absolute; bottom: 2px; right: 2px; width: 12px; height: 12px; background: var(--accent); border: 2px solid white; border-radius: 50%; }
+        .chat-info { flex: 1; display: flex; flex-direction: column; justify-content: center; }
+        .chat-info h4 { font-size: 16px; color: #333; }
+        .chat-info p { font-size: 13px; color: #888; }
+
+        .chat-header { background: var(--primary); color: white; padding: 10px 15px; display: flex; align-items: center; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        .chat-header i { font-size: 20px; cursor: pointer; margin-right: 15px; transition: 0.3s; }
+        .chat-header i:hover { color: var(--light-green); }
+        .chat-header .avatar { width: 40px; height: 40px; font-size: 16px; margin-right: 10px; }
+        .chat-header .user-info h4 { font-size: 16px; }
+        .chat-header .user-info p { font-size: 12px; color: #d1e4e0; }
+        .call-icons { margin-left: auto; }
+        .call-icons i { margin-left: 15px; font-size: 18px; cursor: pointer; transition: 0.3s; }
+        .call-icons i:hover { color: var(--light-green); }
+        
+        .messages-container { flex: 1; background-color: var(--chat-bg); padding: 15px; overflow-y: auto; display: flex; flex-direction: column; }
+        .message { max-width: 75%; padding: 10px 15px; border-radius: 10px; margin-bottom: 10px; font-size: 14px; position: relative; animation: msgPop 0.3s ease; word-wrap: break-word; }
+        @keyframes msgPop { from { transform: scale(0.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+        .message.sent { background: var(--light-green); align-self: flex-end; border-top-right-radius: 0; }
+        .message.received { background: white; align-self: flex-start; border-top-left-radius: 0; }
+        .timestamp { font-size: 10px; color: #888; text-align: right; margin-top: 4px; display: block;}
+        
+        .voice-msg { display: flex; align-items: center; }
+        .voice-msg audio { height: 35px; width: 180px; }
+
+        .input-area { display: flex; padding: 10px; background: #f0f2f5; align-items: center; position: relative; z-index: 10; }
+        .input-area i { font-size: 22px; color: #777; margin: 0 10px; cursor: pointer; transition: 0.3s; }
+        .input-area i:hover { color: var(--accent); }
+        .input-box { flex: 1; display: flex; background: white; border-radius: 30px; padding: 5px 15px; align-items: center; }
+        .input-box input { flex: 1; border: none; outline: none; padding: 10px; font-size: 14px; }
+        .send-btn { background: var(--accent); color: white; border: none; width: 40px; height: 40px; border-radius: 50%; margin-left: 10px; cursor: pointer; font-size: 16px; transition: 0.3s; display: flex; justify-content: center; align-items: center; }
+        .send-btn:hover { transform: scale(1.1); }
+        
+        .action-menu { position: absolute; bottom: 65px; left: 15px; background: white; padding: 15px; border-radius: 15px; box-shadow: 0 5px 15px rgba(0,0,0,0.2); display: none; grid-template-columns: repeat(3, 1fr); gap: 15px; animation: slideUpFade 0.3s ease; z-index: 20; }
+        .action-menu.active { display: grid; }
+        @keyframes slideUpFade { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        .action-item { text-align: center; cursor: pointer; font-size: 12px; color: #555; }
+        .action-item i { font-size: 24px; color: var(--secondary); margin-bottom: 5px; display: block; transition: 0.3s; }
+        .action-item:hover i { transform: scale(1.2); color: var(--accent); }
+
+        .call-modal { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); display: none; flex-direction: column; justify-content: center; align-items: center; color: white; z-index: 100; animation: fadeIn 0.5s; }
+        .call-modal.active { display: flex; }
+        .call-modal .avatar { width: 100px; height: 100px; font-size: 40px; margin-bottom: 20px; z-index: 10; }
+        .call-modal h2 { margin-bottom: 10px; z-index: 10; }
+        .call-modal p { color: #aaa; margin-bottom: 40px; z-index: 10; }
+        .call-icons-set i { font-size: 30px; margin: 0 20px; background: #333; padding: 15px; border-radius: 50%; cursor: pointer; transition: 0.3s; z-index: 10; }
+        .call-icons-set i:hover { background: #555; transform: scale(1.1); }
+        .call-icons-set i.end-call { background: #dc3545; }
+        .call-icons-set i.call-accept { background: var(--accent); }
+        
+        .toast { position: absolute; bottom: 70px; left: 50%; transform: translateX(-50%); background: #333; color: white; padding: 10px 20px; border-radius: 20px; font-size: 14px; display: none; z-index: 200; animation: fadeIn 0.3s; }
+        .toast.show { display: block; }
+        .hidden { display: none; }
+        
+        #localVideo { position: absolute; top: 20px; right: 20px; width: 120px; height: 160px; background: #000; border-radius: 10px; object-fit: cover; z-index: 20; display: none; border: 2px solid white; }
+        #remoteVideo { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; z-index: 1; display: none; background: #000; }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <div id="authScreen" class="screen auth-screen active">
+            <div class="auth-box">
+                <h2 id="authTitle">Chetting Tolk এ লগইন করুন</h2>
+                <input type="text" id="nameField" placeholder="আপনার নাম" style="display: none;">
+                <input type="email" id="emailField" placeholder="ইমেল ঠিকানা">
+                <input type="password" id="passField" placeholder="পাসওয়ার্ড">
+                <p id="errorMsg"></p>
+                <button id="authBtn">লগইন করুন</button>
+                <p class="switch-text">অ্যাকাউন্ট নেই? <span id="switchBtn">রেজিস্টার করুন</span></p>
+            </div>
+        </div>
+
+        <div id="homeScreen" class="screen">
+            <div class="header">
+                <h3>Chetting Tolk</h3>
+                <div class="header-icons">
+                    <i class="fas fa-sign-out-alt" id="logoutBtn" title="লগআউট"></i>
+                </div>
+            </div>
+            <div class="chat-list" id="userList"></div>
+        </div>
+
+        <div id="chatScreen" class="screen">
+            <div class="chat-header">
+                <i class="fas fa-arrow-left" id="backBtn"></i>
+                <div class="avatar" id="chatAvatar">U</div>
+                <div class="user-info">
+                    <h4 id="chatUserName">User Name</h4>
+                    <p id="chatUserStatus">অনলাইনে আছে</p>
+                </div>
+                <div class="call-icons">
+                    <i class="fas fa-phone" id="audioCallBtn"></i>
+                    <i class="fas fa-video" id="videoCallBtn"></i>
+                </div>
+            </div>
+            <div class="messages-container" id="messagesContainer"></div>
+            <div class="input-area">
+                <i class="fas fa-plus-circle" id="actionBtn"></i>
+                <div class="input-box">
+                    <input type="text" id="messageInput" placeholder="মেসেজ লিখুন...">
+                    <i class="far fa-smile" id="emojiBtn"></i>
+                </div>
+                <button class="send-btn" id="sendBtn"><i class="fas fa-paper-plane"></i></button>
+                <div class="action-menu" id="actionMenu">
+                    <div class="action-item" id="voiceMsgBtn"><i class="fas fa-microphone"></i>ভয়েস</div>
+                    <div class="action-item" id="stickerBtn"><i class="far fa-smile"></i>স্টিকার</div>
+                    <div class="action-item"><i class="fas fa-file"></i>ডকুমেন্ট</div>
+                </div>
+            </div>
+            <div id="toast" class="toast"></div>
+        </div>
+
+        <div id="callModal" class="call-modal">
+            <video id="remoteVideo" autoplay playsinline></video>
+            <video id="localVideo" autoplay playsinline muted></video>
+            <div class="avatar" id="callAvatar">U</div>
+            <h2 id="callName">User Name</h2>
+            <p id="callStatus">কল হচ্ছে... <i class="fas fa-circle-notch fa-spin"></i></p>
+            <div class="call-icons-set" id="callActions">
+                <i class="fas fa-phone-slash end-call" id="endCallBtn" title="কল কেটে দিন"></i>
+            </div>
+        </div>
+        
+        <audio id="remoteAudio" autoplay class="hidden"></audio>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+        import { getDatabase, ref, set, push, onValue, onChildAdded, get, remove } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyAIerQXVRxI1ygj9Tj7dHJry4BSay-LycY",
+            authDomain: "chetting-tolk-bf26b.firebaseapp.com",
+            projectId: "chetting-tolk-bf26b",
+            storageBucket: "chetting-tolk-bf26b.firebasestorage.app",
+            messagingSenderId: "356778857951",
+            appId: "1:356778857951:web:78329f6c8eb23b5993e06a",
+            databaseURL: "https://chetting-tolk-bf26b-default-rtdb.firebaseio.com/"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getDatabase(app);
+
+        const errorMsg = document.getElementById('errorMsg');
+        let currentChatUser = null;
+        let currentUserData = null;
+        let isLogin = true;
+
+        let localStream = null; 
+        let peerConnection = null;
+        let callId = null;
+        const servers = { 'iceServers': [{ 'urls': 'stun:stun.l.google.com:19302' }] };
+
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            toast.innerText = message;
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), 3000);
+        }
+
+        document.getElementById('switchBtn').addEventListener('click', () => {
+            isLogin = !isLogin;
+            errorMsg.style.display = 'none';
+            document.getElementById('authTitle').innerText = isLogin ? "Chetting Tolk এ লগইন করুন" : "নতুন অ্যাকাউন্ট তৈরি করুন";
+            document.getElementById('authBtn').innerText = isLogin ? "লগইন করুন" : "রেজিস্টার করুন";
+            document.getElementById('nameField').style.display = isLogin ? 'none' : 'block';
+        });
+
+        function showError(message) {
+            errorMsg.innerText = message;
+            errorMsg.style.display = 'block';
+        }
+
+        document.getElementById('authBtn').addEventListener('click', async () => {
+            const email = document.getElementById('emailField').value;
+            const pass = document.getElementById('passField').value;
+            const name = document.getElementById('nameField').value;
+            if(!email || !pass) { return showError("ইমেল এবং পাসওয়ার্ড দিন।"); }
+            if(!isLogin && !name) { return showError("অ্যাকাউন্ট তৈরির জন্য নাম দিন।"); }
+            errorMsg.style.display = 'none';
+
+            try {
+                if(isLogin) {
+                    await signInWithEmailAndPassword(auth, email, pass);
+                } else {
+                    const userCredential = await createUserWithEmailAndPassword(auth, email, pass);
+                    await set(ref(db, 'users/' + userCredential.user.uid), {
+                        uid: userCredential.user.uid, name: name, email: email, online: true
+                    });
+                }
+            } catch (error) {
+                if(error.code === 'auth/network-request-failed') showError("ইন্টারনেট সংযোগে সমস্যা।");
+                else if(error.code === 'auth/email-already-in-use') showError("এই ইমেল দিয়ে অ্যাকাউন্ট আছে।");
+                else if(error.code === 'auth/invalid-credential') showError("ইমেল বা পাসওয়ার্ড ভুল।");
+                else showError("সমস্যা: " + error.message);
+            }
+        });
+
+        document.getElementById('logoutBtn').addEventListener('click', async () => {
+            if(currentUserData) await set(ref(db, 'users/' + currentUserData.uid + '/online'), false);
+            await signOut(auth);
+        });
+
+        onAuthStateChanged(auth, async (user) => {
+            if(user) {
+                try {
+                    const snapshot = await get(ref(db, 'users/' + user.uid));
+                    if(snapshot.exists()) {
+                        currentUserData = snapshot.val();
+                    } else {
+                        const fallbackName = user.email.split('@')[0];
+                        await set(ref(db, 'users/' + user.uid), {
+                            uid: user.uid, name: fallbackName, email: user.email, online: true
+                        });
+                        currentUserData = { uid: user.uid, name: fallbackName, email: user.email, online: true };
+                    }
+                    showScreen('homeScreen');
+                    loadUsers();
+                    listenForIncomingCalls();
+                } catch (dbError) {
+                    showError("ডাটাবেস সংযোগে সমস্যা! Rules ঠিক আছে কিনা দেখুন।");
+                }
+            } else {
+                currentUserData = null;
+                showScreen('authScreen');
+            }
+        });
+
+        function loadUsers() {
+            const usersRef = ref(db, 'users');
+            const userListDiv = document.getElementById('userList');
+            onValue(usersRef, (snapshot) => {
+                userListDiv.innerHTML = '';
+                let hasUsers = false;
+                snapshot.forEach(child => {
+                    const user = child.val();
+                    if(user.uid !== currentUserData.uid) {
+                        hasUsers = true;
+                        const div = document.createElement('div');
+                        div.className = 'chat-item';
+                        div.innerHTML = `
+                            <div class="avatar">
+                                ${user.name.charAt(0).toUpperCase()}
+                                ${user.online ? '<div class="online-dot"></div>' : ''}
+                            </div>
+                            <div class="chat-info">
+                                <h4>${user.name}</h4>
+                                <p>${user.online ? 'অনলাইনে আছে' : 'অফলাইন'}</p>
+                            </div>`;
+                        div.addEventListener('click', () => openChat(user));
+                        userListDiv.appendChild(div);
+                    }
+                });
+                if(!hasUsers) userListDiv.innerHTML = '<p style="text-align:center; padding:20px; color:#888;">অন্য কোনো ইউজার নেই।</p>';
+            });
+        }
+
+        function openChat(user) {
+            currentChatUser = user;
+            document.getElementById('chatUserName').innerText = user.name;
+            document.getElementById('chatAvatar').innerText = user.name.charAt(0).toUpperCase();
+            document.getElementById('chatUserStatus').innerText = user.online ? 'অনলাইনে আছে' : 'অফলাইন';
+            showScreen('chatScreen');
+            loadMessages();
+        }
+
+        document.getElementById('backBtn').addEventListener('click', () => showScreen('homeScreen'));
+
+        function loadMessages() {
+            const msgContainer = document.getElementById('messagesContainer');
+            msgContainer.innerHTML = '';
+            const chatId = [currentUserData.uid, currentChatUser.uid].sort().join('_');
+            const messagesRef = ref(db, 'chats/' + chatId);
+
+            onChildAdded(messagesRef, (snapshot) => {
+                const msg = snapshot.val();
+                const div = document.createElement('div');
+                div.className = `message ${msg.senderId === currentUserData.uid ? 'sent' : 'received'}`;
+                
+                if(msg.type === 'voice') {
+                    div.classList.add('voice-msg');
+                    div.innerHTML = `<i class="fas fa-microphone" style="margin-right:10px;"></i><audio controls src="${msg.audioUrl}"></audio><span class="timestamp">${new Date(msg.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>`;
+                } else {
+                    div.innerHTML = `${msg.text} <span class="timestamp">${new Date(msg.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>`;
+                }
+                msgContainer.appendChild(div);
+                msgContainer.scrollTop = msgContainer.scrollHeight;
+            });
+        }
+
+        document.getElementById('sendBtn').addEventListener('click', sendMessage);
+        document.getElementById('messageInput').addEventListener('keypress', (e) => { if(e.key === 'Enter') sendMessage(); });
+
+        async function sendMessage() {
+            if (mediaRecorder && mediaRecorder.state === 'recording') {
+                mediaRecorder.stop();
+                return;
+            }
+            const input = document.getElementById('messageInput');
+            const text = input.value.trim();
+            if(!text) return;
+            
+            const chatId = [currentUserData.uid, currentChatUser.uid].sort().join('_');
+            const newMsgRef = push(ref(db, 'chats/' + chatId));
+            
+            try {
+                await set(newMsgRef, { senderId: currentUserData.uid, text: text, timestamp: Date.now() });
+                input.value = '';
+            } catch (err) {
+                showToast("মেসেজ পাঠাতে ব্যর্থ! ডাটাবেস রুলস চেক করুন।");
+            }
+        }
+
+        let mediaRecorder = null;
+        let audioChunks = [];
+
+        document.getElementById('voiceMsgBtn').addEventListener('click', async () => {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                mediaRecorder = new MediaRecorder(stream);
+                audioChunks = [];
+                
+                mediaRecorder.ondataavailable = event => { audioChunks.push(event.data); };
+                mediaRecorder.onstop = async () => {
+                    const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+                    const reader = new FileReader();
+                    reader.readAsDataURL(audioBlob);
+                    reader.onloadend = async () => {
+                        const base64String = reader.result;
+                        const chatId = [currentUserData.uid, currentChatUser.uid].sort().join('_');
+                        const newMsgRef = push(ref(db, 'chats/' + chatId));
+                        try {
+                            await set(newMsgRef, { senderId: currentUserData.uid, type: 'voice', audioUrl: base64String, timestamp: Date.now() });
+                        } catch (err) {
+                            showToast("ভয়েস মেসেজ পাঠাতে ব্যর্থ!");
+                        }
+                    };
+                    stream.getTracks().forEach(track => track.stop());
+                    document.getElementById('sendBtn').innerHTML = '<i class="fas fa-paper-plane"></i>';
+                    document.getElementById('sendBtn').style.background = 'var(--accent)';
+                };
+
+                mediaRecorder.start();
+                document.getElementById('actionMenu').classList.remove('active');
+                document.getElementById('sendBtn').innerHTML = '<i class="fas fa-stop"></i>';
+                document.getElementById('sendBtn').style.background = 'red';
+                
+            } catch (err) {
+                showToast("মাইক্রোফোন অ্যাক্সেস করতে ব্যর্থ হয়েছে।");
+            }
+        });
+
+        const actionBtn = document.getElementById('actionBtn');
+        const actionMenu = document.getElementById('actionMenu');
+        actionBtn.addEventListener('click', (e) => { e.stopPropagation(); actionMenu.classList.toggle('active'); });
+        document.addEventListener('click', (e) => {
+            if(!actionMenu.contains(e.target) && e.target !== actionBtn) actionMenu.classList.remove('active');
+        });
+
+        document.getElementById('stickerBtn').addEventListener('click', () => {
+            const stickers = ["😀", "😂", "❤️", "👍", "🔥", "🎉"];
+            document.getElementById('messageInput').value += stickers[Math.floor(Math.random() * stickers.length)];
+            actionMenu.classList.remove('active');
+        });
+
+        // ================= WEBRTC CALL LOGIC =================
+        document.getElementById('audioCallBtn').addEventListener('click', () => startCall(false));
+        document.getElementById('videoCallBtn').addEventListener('click', () => startCall(true));
+        
+        // Initial End Call Button
+        document.getElementById('endCallBtn').addEventListener('click', () => endCall(true));
+
+        async function getMediaStream(isVideo) {
+            if (localStream) return localStream;
+            try {
+                localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: isVideo });
+                if(isVideo) {
+                    document.getElementById('localVideo').srcObject = localStream;
+                    document.getElementById('localVideo').style.display = 'block';
+                }
+                return localStream;
+            } catch (err) {
+                showToast("মাইক্রোফোন/ক্যামেরা অনুমতি প্রয়োজন!");
+                throw err;
+            }
+        }
+
+        async function startCall(isVideo) {
+            if(!currentChatUser) return;
+            callId = [currentUserData.uid, currentChatUser.uid].sort().join('_');
+            
+            document.getElementById('callName').innerText = currentChatUser.name;
+            document.getElementById('callAvatar').innerText = currentChatUser.name.charAt(0).toUpperCase();
+            document.getElementById('callStatus').innerHTML = 'রিং হচ্ছে... <i class="fas fa-circle-notch fa-spin"></i>';
+            document.getElementById('callModal').classList.add('active');
+            
+            if(isVideo) {
+                document.getElementById('callAvatar').style.display = 'none';
+            }
+            
+            // কল দাতার জন্য লাল কল কাটার বাটন
+            document.getElementById('callActions').innerHTML = '<i class="fas fa-phone-slash end-call" id="endCallBtn" title="কল কেটে দিন"></i>';
+            document.getElementById('endCallBtn').addEventListener('click', () => endCall(true));
+
+            try {
+                const stream = await getMediaStream(isVideo);
+                peerConnection = new RTCPeerConnection(servers);
+                stream.getTracks().forEach(track => peerConnection.addTrack(track, stream));
+
+                peerConnection.ontrack = (event) => {
+                    const remoteAudio = document.getElementById('remoteAudio');
+                    const remoteVideo = document.getElementById('remoteVideo');
+                    if (event.streams && event.streams[0]) {
+                        remoteAudio.srcObject = event.streams[0];
+                        remoteVideo.srcObject = event.streams[0];
+                        if(event.streams[0].getVideoTracks().length > 0) {
+                            remoteVideo.style.display = 'block';
+                            document.getElementById('callAvatar').style.display = 'none';
+                        }
+                    }
+                };
+
+                peerConnection.onicecandidate = (event) => {
+                    if(event.candidate) push(ref(db, `calls/${callId}/callerCandidates`), event.candidate.toJSON());
+                };
+
+                const offer = await peerConnection.createOffer();
+                await peerConnection.setLocalDescription(offer);
+
+                const callData = {
+                    caller: currentUserData.uid,
+                    callerName: currentUserData.name,
+                    callee: currentChatUser.uid,
+                    type: isVideo ? 'video' : 'audio',
+                    offer: { type: offer.type, sdp: offer.sdp },
+                    status: 'ringing',
+                    timestamp: Date.now()
+                };
+                
+                await set(ref(db, `calls/${callId}`), callData);
+                
+                onValue(ref(db, `calls/${callId}/answer`), async (snapshot) => {
+                    if(snapshot.exists() && peerConnection) {
+                        const answer = snapshot.val();
+                        if(!peerConnection.currentRemoteDescription) {
+                            await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
+                            document.getElementById('callStatus').innerText = 'কল চলছে...';
+                        }
+                    }
+                });
+
+                // যদি অপর পক্ষ কল কেটে দেয় বা রিজেক্ট করে
+                onValue(ref(db, `calls/${callId}/status`), (snapshot) => {
+                    if(snapshot.val() === 'rejected' || snapshot.val() === 'ended') {
+                        endCall(false); // notify false কারণ অপর পক্ষ ইতিমধ্যে জানিয়ে দিয়েছে
+                    }
+                });
+
+                onChildAdded(ref(db, `calls/${callId}/calleeCandidates`), async (snapshot) => {
+                    const candidate = snapshot.val();
+                    if(peerConnection) try { await peerConnection.addIceCandidate(new RTCIceCandidate(candidate)); } catch(e) {}
+                });
+
+            } catch (err) {
+                endCall(false);
+            }
+        }
+
+        function listenForIncomingCalls() {
+            const callsRef = ref(db, 'calls');
+            onChildAdded(callsRef, async (snapshot) => {
+                const call = snapshot.val();
+                if(call.callee === currentUserData.uid && !peerConnection) {
+                    callId = snapshot.key;
+                    
+                    document.getElementById('callName').innerText = call.callerName || "Unknown User";
+                    document.getElementById('callAvatar').innerText = call.callerName ? call.callerName.charAt(0).toUpperCase() : 'U';
+                    document.getElementById('callStatus').innerText = 'ইনকামিং কল...';
+                    document.getElementById('callModal').classList.add('active');
+                    
+                    // কল রিসিভারের জন্য সবুজ রিসিভ এবং লাল রিজেক্ট বাটন
+                    document.getElementById('callActions').innerHTML = `
+                        <i class="fas fa-phone call-accept" id="acceptCallBtn" title="রিসিভ করুন"></i>
+                        <i class="fas fa-phone-slash end-call" id="rejectCallBtn" title="রিজেক্ট করুন"></i>`;
+                    document.getElementById('acceptCallBtn').addEventListener('click', () => acceptCall(call));
+                    document.getElementById('rejectCallBtn').addEventListener('click', () => rejectCall());
+                }
+            });
+        }
+
+        async function acceptCall(call) {
+            try {
+                const stream = await getMediaStream(call.type === 'video');
+                peerConnection = new RTCPeerConnection(servers);
+                stream.getTracks().forEach(track => peerConnection.addTrack(track, stream));
+
+                peerConnection.ontrack = (event) => {
+                    const remoteAudio = document.getElementById('remoteAudio');
+                    const remoteVideo = document.getElementById('remoteVideo');
+                    if (event.streams && event.streams[0]) {
+                        remoteAudio.srcObject = event.streams[0];
+                        remoteVideo.srcObject = event.streams[0];
+                        if(event.streams[0].getVideoTracks().length > 0) {
+                            remoteVideo.style.display = 'block';
+                            document.getElementById('callAvatar').style.display = 'none';
+                        }
+                    }
+                };
+
+                peerConnection.onicecandidate = (event) => {
+                    if(event.candidate) push(ref(db, `calls/${callId}/calleeCandidates`), event.candidate.toJSON());
+                };
+
+                await peerConnection.setRemoteDescription(new RTCSessionDescription(call.offer));
+                const answer = await peerConnection.createAnswer();
+                await peerConnection.setLocalDescription(answer);
+                
+                await set(ref(db, `calls/${callId}/answer`), { type: answer.type, sdp: answer.sdp });
+
+                document.getElementById('callStatus').innerText = 'কল চলছে...';
+                
+                // কল রিসিভ করার পর লাল কল কাটার বাটন দেখানো হলো
+                document.getElementById('callActions').innerHTML = '<i class="fas fa-phone-slash end-call" id="endCallBtn" title="কল কেটে দিন"></i>';
+                document.getElementById('endCallBtn').addEventListener('click', () => endCall(true));
+
+                onChildAdded(ref(db, `calls/${callId}/callerCandidates`), async (snapshot) => {
+                    const candidate = snapshot.val();
+                    if(peerConnection) try { await peerConnection.addIceCandidate(new RTCIceCandidate(candidate)); } catch(e) {}
+                });
+
+            } catch(err) {
+                endCall(true);
+            }
+        }
+
+        async function rejectCall() {
+            if(callId) {
+                await set(ref(db, `calls/${callId}/status`), 'rejected');
+                await remove(ref(db, `calls/${callId}`));
+                callId = null;
+            }
+            resetCallUI();
+        }
+
+        // notifyOtherParty = true হলে ডাটাবেসে 'ended' পাঠানো হবে, যাতে অপর পক্ষের কলও কেটে যায়
+        async function endCall(notifyOtherParty) {
+            if(peerConnection) peerConnection.close();
+            peerConnection = null;
+            resetCallUI();
+            
+            if(callId && notifyOtherParty) {
+                await set(ref(db, `calls/${callId}/status`), 'ended');
+            }
+            if(callId) {
+                await remove(ref(db, `calls/${callId}`));
+                callId = null;
+            }
+        }
+
+        function resetCallUI() {
+            document.getElementById('callModal').classList.remove('active');
+            document.getElementById('remoteVideo').style.display = 'none';
+            document.getElementById('localVideo').style.display = 'none';
+            document.getElementById('callAvatar').style.display = 'flex';
+            const remoteVideo = document.getElementById('remoteVideo');
+            const localVideo = document.getElementById('localVideo');
+            const remoteAudio = document.getElementById('remoteAudio');
+            remoteVideo.srcObject = null;
+            localVideo.srcObject = null;
+            remoteAudio.srcObject = null;
+        }
+
+        function showScreen(screenId) {
+            document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+            document.getElementById(screenId).classList.add('active');
+        }
+    </script>
+</body>
+</html>
